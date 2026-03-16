@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Go Tic-Tac-Toe AI</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #1e1e2f;
+            color: #ffffff;
+            margin-top: 50px;
+        }
+
+        h1 { margin-bottom: 10px; }
+        
+        .status {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            height: 24px;
+            color: #ffcc00;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 5px;
+            background-color: #444;
+            padding: 5px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+
+        .cell {
+            background-color: #2a2a3b;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 3rem;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.2s;
+        }
+
+        .cell:hover { background-color: #3f3f5a; }
+        .cell.x { color: #ff4757; }
+        .cell.o { color: #2ed573; }
+        .cell.disabled { pointer-events: none; }
+
+        .btn-restart {
+            margin-top: 30px;
+            padding: 10px 20px;
+            font-size: 1.2rem;
+            background-color: #2ed573;
+            color: #1e1e2f;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            display: none;
+            font-weight: bold;
+        }
+
+        .btn-restart:hover { background-color: #26b360; }
+    </style>
+</head>
+<body>
+
+    <h1>Tic-Tac-Toe vs Minimax</h1>
+    <div class="status" id="status">Your turn (X)</div>
+
+    <div class="board" id="board"></div>
+
+    <button class="btn-restart" id="btnRestart" onclick="initGame()">New Game</button>
+
+    <script>
+        const API_URL = "http://localhost:8080/game";
+        
+        let currentUUID = null;
+        let isGameOver = false;
+        let isWaitingForServer = false;
+        
+        let grid = [
+            [0, 0, 0],
+            [0, 0, 0],
+            [0, 0, 0]
+        ];
+
+        const boardElement = document.getElementById("board");
+        const statusElement = document.getElementById("status");
+        const restartBtn = document.getElementById("btnRestart");
+
+        function generateUUID() {
+            return crypto.randomUUID();
+        }
+
+        function initGame() {
+            currentUUID = generateUUID();
+            isGameOver = false;
+            isWaitingForServer = false;
+            grid = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+            
+            statusElement.innerText = "Your turn (X)";
+            statusElement.style.color = "#ffcc00";
+            restartBtn.style.display = "none";
+            
+            renderBoard();
+        }
+
+        function renderBoard() {
+            boardElement.innerHTML = "";
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 3; j++) {
+                    const cell = document.createElement("div");
+                    cell.classList.add("cell");
+                    
+                    if (grid[i][j] === 1) {
+                        cell.innerText = "X";
+                        cell.classList.add("x");
+                    } else if (grid[i][j] === -1) {
+                        cell.innerText = "O";
+                        cell.classList.add("o");
+                    }
+
+                    cell.addEventListener("click", () => handleCellClick(i, j));
+                    
+                    if (grid[i][j] !== 0 || isGameOver || isWaitingForServer) {
+                        cell.classList.add("disabled");
+                    }
+
+                    boardElement.appendChild(cell);
+                }
+            }
+        }
+
+        async function handleCellClick(i, j) {
+            if (grid[i][j] !== 0 || isGameOver || isWaitingForServer) return;
+
+            grid[i][j] = 1; 
+            renderBoard();
+            
+            isWaitingForServer = true;
+            statusElement.innerText = "Computer is thinking...";
+
+            try {
+                const response = await fetch(`${API_URL}/${currentUUID}`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ grid: grid })
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || "Server error");
+                }
+
+                const data = await response.json();
+                
+                grid = data.grid;
+                isWaitingForServer = false;
+                renderBoard();
+
+                if (data.winner) {
+                    endGame(data.winner);
+                } else {
+                    statusElement.innerText = "Your turn (X)";
+                }
+
+            } catch (error) {
+                statusElement.innerText = `Error: ${error.message}`;
+                statusElement.style.color = "#ff4757";
+                isWaitingForServer = false;
+                renderBoard();
+            }
+        }
+
+        function endGame(winnerStr) {
+            isGameOver = true;
+            renderBoard();
+            restartBtn.style.display = "block";
+            
+            if (winnerStr === "X") {
+                statusElement.innerText = "🎉 You win!";
+                statusElement.style.color = "#2ed573";
+            } else if (winnerStr === "0") {
+                statusElement.innerText = "💀 Computer wins!";
+                statusElement.style.color = "#ff4757";
+            } else {
+                statusElement.innerText = "🤝 It's a draw!";
+                statusElement.style.color = "#aaa";
+            }
+        }
+
+        initGame();
+    </script>
+</body>
+</html>
