@@ -1,0 +1,60 @@
+openapi: 3.1.0
+
+info:
+  version: 0.1.0
+  title: Tic-Tac-Toe - OpenAPI 3.1
+
+servers:
+  - url: http://localhost:8080
+
+tags:
+  - name: game
+paths:
+  /game/{uuid}:
+    post:
+      tags:
+        - game
+      summary: Update current game board.
+      description: Sends the current game with the user’s updated game board and returns the current game with the computer’s updated game board.
+      parameters:
+        - in: path
+          name: uuid
+          schema:
+            type: string
+          required: true
+          description: UUID of current game
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GameRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GameResponse'
+        '400':
+          description: Bad request
+components:
+  schemas:
+    GameRequest:
+      type: object
+      properties:
+        grid:
+          type: array
+          examples: [[[0, 0, 0], [0, 0, 1], [0, 0, 0]]]
+    GameResponse:
+      type: object
+      properties:
+        uuid:
+          type: string
+          examples: ["8f10ae6a-1b23-4352-a1ce-56ec8ae5cd1d"]
+        grid:
+          type: array
+          examples: [[[-1, 0, 0], [0, 0, 1], [0, 0, 0]]]
+        winner:
+          type: string
+          examples: ["X", "O", "draw"]
