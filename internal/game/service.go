@@ -1,9 +1,8 @@
-package service
+package game
 
 import (
 	"errors"
 	"math"
-	"tic-tac-toe/internal/domain/models"
 )
 
 var (
@@ -12,7 +11,11 @@ var (
 	ErrNoNewTurns           = errors.New("no new turns")
 )
 
-var _ Manager = (*GameService)(nil)
+type Manager interface {
+	GetNextTurn(Grid) Grid
+	ValidateCurrentState(oldGrid Grid, newGrid Grid) error
+	CheckForWin(Grid) (int, bool)
+}
 
 type GameService struct {
 	repo GameRepository
@@ -22,9 +25,11 @@ func NewGameService() *GameService {
 	return &GameService{}
 }
 
-func (s *GameService) GetNextTurn(grid models.Grid) models.Grid {
+var _ Manager = (*GameService)(nil)
+
+func (s *GameService) GetNextTurn(grid Grid) Grid {
 	bestResult := math.MaxInt64
-	var bestTurn models.Grid
+	var bestTurn Grid
 	for _, state := range s.actions(grid) {
 		currentResult := s.minimax(state)
 		if currentResult < bestResult {
@@ -35,27 +40,27 @@ func (s *GameService) GetNextTurn(grid models.Grid) models.Grid {
 	return bestTurn
 }
 
-func (s *GameService) player(grid models.Grid) int {
+func (s *GameService) player(grid Grid) int {
 	turnsCount := 0
 	for i := range 3 {
 		for j := range 3 {
-			if grid.Matrix[i][j] != models.EmptyFigure {
+			if grid.Matrix[i][j] != EmptyFigure {
 				turnsCount++
 			}
 		}
 	}
 	if turnsCount%2 == 0 {
-		return models.MaximizerFigure
+		return MaximizerFigure
 	}
-	return models.MinimizerFigure
+	return MinimizerFigure
 }
 
-func (s *GameService) actions(grid models.Grid) []models.Grid {
-	allPossibleStates := make([]models.Grid, 0)
+func (s *GameService) actions(grid Grid) []Grid {
+	allPossibleStates := make([]Grid, 0)
 	currentTurnFigure := s.player(grid)
 	for i := range 3 {
 		for j := range 3 {
-			if grid.Matrix[i][j] == models.EmptyFigure {
+			if grid.Matrix[i][j] == EmptyFigure {
 				newGrid := grid
 				newGrid.Matrix[i][j] = currentTurnFigure
 				allPossibleStates = append(allPossibleStates, newGrid)
@@ -65,19 +70,19 @@ func (s *GameService) actions(grid models.Grid) []models.Grid {
 	return allPossibleStates
 }
 
-func (s *GameService) minimax(grid models.Grid) int {
+func (s *GameService) minimax(grid Grid) int {
 	winner, isTerminal := s.CheckForWin(grid)
 	if isTerminal {
 		return winner
 	}
-	if s.player(grid) == models.MaximizerFigure {
+	if s.player(grid) == MaximizerFigure {
 		value := math.MinInt64
 		for _, a := range s.actions(grid) {
 			value = max(value, s.minimax(a))
 		}
 		return value
 	}
-	if s.player(grid) == models.MinimizerFigure {
+	if s.player(grid) == MinimizerFigure {
 		value := math.MaxInt64
 		for _, a := range s.actions(grid) {
 			value = min(value, s.minimax(a))
@@ -87,12 +92,12 @@ func (s *GameService) minimax(grid models.Grid) int {
 	return winner
 }
 
-func (s *GameService) ValidateCurrentState(oldGrid models.Grid, newGrid models.Grid) error {
+func (s *GameService) ValidateCurrentState(oldGrid Grid, newGrid Grid) error {
 	newTurns := 0
 	for i := range 3 {
 		for j := range 3 {
 			if oldGrid.Matrix[i][j] != newGrid.Matrix[i][j] {
-				if oldGrid.Matrix[i][j] != models.EmptyFigure {
+				if oldGrid.Matrix[i][j] != EmptyFigure {
 					return ErrPreviousTurnsChanged
 				}
 				newTurns++
@@ -107,7 +112,7 @@ func (s *GameService) ValidateCurrentState(oldGrid models.Grid, newGrid models.G
 	return nil
 }
 
-func (s *GameService) CheckForWin(grid models.Grid) (int, bool) {
+func (s *GameService) CheckForWin(grid Grid) (int, bool) {
 	leftDiagonalSum := 0
 	rightDiagonalSum := 0
 	hasEmptyCells := false
@@ -115,27 +120,27 @@ func (s *GameService) CheckForWin(grid models.Grid) (int, bool) {
 		horizontalSum := 0
 		verticalSum := 0
 		for j := range 3 {
-			if grid.Matrix[i][j] == models.EmptyFigure {
+			if grid.Matrix[i][j] == EmptyFigure {
 				hasEmptyCells = true
 			}
 			horizontalSum += grid.Matrix[i][j]
 			verticalSum += grid.Matrix[j][i]
 		}
-		if horizontalSum == models.WinScoreMax || verticalSum == models.WinScoreMax {
-			return models.MaximizerFigure, true
-		} else if horizontalSum == models.WinScoreMin || verticalSum == models.WinScoreMin {
-			return models.MinimizerFigure, true
+		if horizontalSum == WinScoreMax || verticalSum == WinScoreMax {
+			return MaximizerFigure, true
+		} else if horizontalSum == WinScoreMin || verticalSum == WinScoreMin {
+			return MinimizerFigure, true
 		}
 		leftDiagonalSum += grid.Matrix[i][2-i]
 		rightDiagonalSum += grid.Matrix[i][i]
 	}
-	if leftDiagonalSum == models.WinScoreMax || rightDiagonalSum == models.WinScoreMax {
-		return models.MaximizerFigure, true
-	} else if leftDiagonalSum == models.WinScoreMin || rightDiagonalSum == models.WinScoreMin {
-		return models.MinimizerFigure, true
+	if leftDiagonalSum == WinScoreMax || rightDiagonalSum == WinScoreMax {
+		return MaximizerFigure, true
+	} else if leftDiagonalSum == WinScoreMin || rightDiagonalSum == WinScoreMin {
+		return MinimizerFigure, true
 	}
 	if hasEmptyCells {
-		return models.EmptyFigure, false
+		return EmptyFigure, false
 	}
-	return models.EmptyFigure, true
+	return EmptyFigure, true
 }
